@@ -18,7 +18,7 @@ render_sidebar()
 
 
 genai.configure(
-    api_key="AIzaSyBKIOck8kS4A14PMiajDBDz5-Idx2xzbnU"
+    api_key="GEMINI_API_KEY"
 )
 
 model = genai.GenerativeModel(
