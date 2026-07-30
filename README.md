@@ -279,7 +279,3 @@ If you found this project useful,
 💡 Contribute with improvements
 
 ---
-
-## License
-
-This project is licensed under the MIT License.
