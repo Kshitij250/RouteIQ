@@ -1,100 +1,312 @@
-# 🚚 RouteIQ – AI-Powered ESG Supply Chain Analytics Platform
+# 🚚 RouteIQ
+### AI-Powered ESG Supply Chain Intelligence & Operational Excellence Platform
 
-<div align="center">
+<p align="center">
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)
-![Streamlit](https://img.shields.io/badge/Streamlit-App-red?style=for-the-badge&logo=streamlit)
-![Plotly](https://img.shields.io/badge/Plotly-Dashboard-3F4F75?style=for-the-badge&logo=plotly)
-![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?style=for-the-badge&logo=pandas)
-![Gemini AI](https://img.shields.io/badge/Google-Gemini%20AI-4285F4?style=for-the-badge&logo=google)
-![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
+AI • ESG • Logistics • Lean Six Sigma • Route Optimization • Business Intelligence
 
-**An AI-powered logistics intelligence platform that helps organizations analyze ESG performance, optimize transportation routes, estimate carbon emissions, and generate sustainability recommendations through interactive analytics dashboards.**
-
-</div>
+</p>
 
 ---
 
-# 📌 Overview
+## 📌 Overview
 
-RouteIQ is an intelligent logistics analytics platform designed to improve supply chain sustainability using data-driven insights and Artificial Intelligence.
+RouteIQ is an AI-powered logistics intelligence platform that helps organizations optimize transportation operations, improve ESG performance, reduce carbon emissions, and identify operational bottlenecks using Lean Six Sigma methodologies.
 
-The platform enables organizations to evaluate transportation emissions, optimize multimodal routes, monitor ESG KPIs, and receive AI-powered recommendations for greener logistics operations.
+The platform combines:
 
-It combines data analytics, optimization algorithms, interactive dashboards, and Generative AI into one unified decision-support system.
+- 🌱 ESG Analytics
+- 🚛 Intelligent Route Optimization
+- 📊 Operational Excellence Analytics
+- 🤖 AI-Powered Root Cause Analysis
+- ♻️ Sustainability Intelligence
+- 🚗 Mobility Recommendations
+
+into a single interactive analytics platform built with Streamlit.
 
 ---
 
-# ✨ Key Features
+# ✨ Core Modules
 
 ## 🌱 ESG Analytics
 
-- Carbon emission analysis
-- ESG performance scoring
-- Carbon cost estimation
-- Sustainability KPI dashboard
-- Environmental impact visualization
+Analyze logistics sustainability using internationally accepted carbon estimation methodologies.
+
+### Features
+
+- Carbon Emission Analysis
+- ESG Performance Score
+- Carbon Cost Estimation
+- Sustainability KPIs
+- Environmental Impact Dashboard
+- Emission Trends
+- Vehicle-wise Carbon Analysis
+- Carbon Optimization Potential
 
 ---
 
 ## 🚛 Route Optimization
 
-- Multimodal transportation planning
-- Fastest route recommendation
-- Cheapest route recommendation
-- Greenest route recommendation
-- Balanced route optimization
+An intelligent multimodal transportation planning engine capable of finding the optimal logistics route based on business objectives.
+
+### Optimization Strategies
+
+- Cheapest Route
+- Fastest Route
+- Greenest Route
+- Balanced Route
+
+### Supported Transport Modes
+
+- Road
+- Rail
+- Sea
+- Air
+
+### Dynamic Features
+
+Unlike traditional static route planners, RouteIQ integrates real-world data.
+
+✔ Live Road Distances (OSRM)
+
+✔ Weather-aware ETA Adjustment
+
+✔ Dynamic Fuel Cost Multiplier
+
+✔ Ocean Route Approximation
+
+✔ Port Waiting Time Estimation
+
+✔ Corridor Disruption Simulation
+
+✔ Automatic Road Network Expansion
 
 ---
 
-## 🤖 AI Sustainability Assistant
+## 📊 Operational Excellence (NEW)
 
-Powered by **Google Gemini AI**
+A complete Lean Six Sigma analytics engine for logistics operations.
 
-Provides:
+The Operational Excellence module transforms logistics data into executive-level operational insights.
 
-- Sustainability recommendations
-- Carbon reduction strategies
-- Green logistics suggestions
-- Fleet optimization insights
-- ESG improvement guidance
+### Executive KPI Dashboard
+
+The dashboard automatically calculates KPIs including:
+
+- On-Time Delivery
+- Turnaround Time (TAT)
+- Cost per Shipment
+- Fleet Utilization
+- Sigma Level
+- DPMO
+- Vehicle Idle Time
+- Warehouse Throughput
+- Delay Cost
+- Carbon / ESG Score
+
+---
+
+### Root Cause Diagnostics
+
+The platform automatically identifies operational bottlenecks using multiple Lean Six Sigma techniques.
+
+#### 📈 Pareto Analysis
+
+- Top delay contributors
+- Cumulative impact
+- 80/20 visualization
+
+---
+
+#### 🐟 Fishbone Diagram
+
+Automatically categorizes delays into:
+
+- People
+- Process
+- Machine
+- Material
+- Environment
+- Management
+
+---
+
+#### ❓ 5 Whys Analysis
+
+Automatically drills down from the primary issue to the root operational cause.
+
+Example:
+
+```
+Weather
+
+↓
+
+Dispatch planning
+
+↓
+
+No weather contingency
+
+↓
+
+No fallback strategy
+
+↓
+
+Root Cause
+```
+
+---
+
+#### 🔄 DMAIC Framework
+
+Automatically generates:
+
+- Define
+- Measure
+- Analyze
+- Improve
+- Control
+
+recommendations for the selected operational issue.
+
+---
+
+#### 💡 AI Recommendations
+
+Business recommendations include:
+
+- Expected delay reduction
+- Operational improvements
+- ESG impact
+- Business impact
+- Priority actions
+
+---
+
+## 🤖 AI Operational Intelligence
+
+Operational Excellence is enhanced using **Groq LLMs**.
+
+The AI engine automatically generates:
+
+- Executive summaries
+- Fishbone explanations
+- 5 Whys
+- DMAIC recommendations
+- Business improvement plans
+- Root cause narratives
+
+while maintaining transparent confidence levels and graceful fallbacks when AI services are unavailable.
 
 ---
 
 ## 🚗 Mobility Assistant
 
-Personalized transportation advisor that recommends:
+Personal sustainability advisor providing:
 
+- Fuel-efficient travel suggestions
 - Sustainable commuting plans
-- Fuel-efficient travel
-- Carbon footprint reduction
-- Vehicle usage optimization
+- Carbon footprint estimation
+- Vehicle utilization guidance
+- Green mobility recommendations
 
 ---
 
-## 📊 Interactive Dashboard
+# 🧠 Intelligent Data Validation
 
-Visualizations include:
+RouteIQ automatically validates uploaded datasets before analysis.
 
-- KPI Cards
-- ESG Metrics
-- Carbon Emissions
-- Cost Analysis
-- Transportation Analytics
-- Interactive Charts
+The validation engine supports all analytics modules simultaneously.
+
+It detects:
+
+- Missing columns
+- Incorrect datatypes
+- Low-quality data
+- Missing KPI fields
+- Proxy estimation opportunities
+
+Each field is categorized as:
+
+- ✅ Present
+- ⚠ Partial
+- ❌ Missing
+- 📌 Estimated
+
+ensuring complete transparency throughout the analytics pipeline.
 
 ---
 
-# 🛠️ Technology Stack
+# 🌍 ESG Methodology
+
+Carbon emissions are calculated using internationally accepted methodologies.
+
+### Standards
+
+- ISO 14083:2023
+- GLEC Framework v3.2
+- Well-to-Wheel (WTW)
+- AR6 GWP-100
+
+The platform also supports multiple confidence tiers depending on available shipment information.
+
+---
+
+# 🤖 AI + Data Transparency
+
+RouteIQ follows a transparent analytics philosophy.
+
+Every KPI and recommendation indicates how it was generated.
+
+### Tier 1
+
+Real observed logistics data
+
+### Tier 2
+
+Partially inferred operational signals
+
+### Tier 3
+
+Illustrative industry benchmark
+
+Users always know whether an insight comes from actual data or estimated values.
+
+---
+
+# 📊 Interactive Dashboards
+
+The platform includes:
+
+- Executive KPI Cards
+- ESG Dashboard
+- Carbon Analytics
+- Cost Analytics
+- Delay Analytics
+- Fleet Analytics
+- Interactive Plotly Charts
+- Route Maps
+- Operational Intelligence Dashboard
+
+---
+
+# ⚙ Technology Stack
 
 | Category | Technologies |
-|-----------|--------------|
+|------------|----------------------------|
 | Language | Python |
 | Dashboard | Streamlit |
 | Data Processing | Pandas, NumPy |
 | Visualization | Plotly |
-| AI | Google Gemini AI |
+| AI | Groq API, Google Gemini |
 | Optimization | NetworkX |
+| Mapping | Folium |
+| Routing | OSRM |
+| Weather | Open-Meteo |
+| Marine Weather | Stormglass |
+| Carbon Analytics | GLEC Framework |
 | Data Source | Excel / CSV |
 | Version Control | Git & GitHub |
 
@@ -104,19 +316,47 @@ Visualizations include:
 
 ```
 RouteIQ/
+
 │
+
 ├── pages/
-│   ├── 1_ESG_Analysis.py
-│   ├── 2_Route_Optimization.py
-│   └── 3_Mobility_Assistant.py
+
+│ ├── 1_ESG_Analysis.py
+
+│ ├── 2_Route_Optimization.py
+
+│ ├── 3_Operational_Excellence.py
+
+│ └── 4_Mobility_Assistant.py
+
 │
+
 ├── utils/
-│   ├── route_engine.py
-│   └── sidebar.py
+
+│ ├── route_engine.py
+
+│ ├── routing_api.py
+
+│ ├── operational_excellence.py
+
+│ ├── groq_ai.py
+
+│ ├── emission_factors.py
+
+│ ├── data_validation.py
+
+│ ├── roi_analysis.py
+
+│ └── sidebar.py
+
 │
+
 ├── upload.py
+
 ├── requirements.txt
+
 └── README.md
+
 ```
 
 ---
@@ -127,9 +367,7 @@ RouteIQ/
 
 ```bash
 git clone https://github.com/Kshitij250/RouteIQ.git
-```
 
-```bash
 cd RouteIQ
 ```
 
@@ -141,15 +379,13 @@ cd RouteIQ
 python -m venv venv
 ```
 
-Activate
-
-Windows
+### Windows
 
 ```bash
 venv\Scripts\activate
 ```
 
-Linux / macOS
+### Linux / macOS
 
 ```bash
 source venv/bin/activate
@@ -173,85 +409,123 @@ streamlit run upload.py
 
 ---
 
-# 📈 Workflow
+# 🔄 Application Workflow
 
 ```
 Upload Dataset
-        │
-        ▼
-ESG Analysis
-        │
-        ▼
+
+↓
+
+Automatic Data Validation
+
+↓
+
+ESG Analytics
+
+↓
+
 Route Optimization
-        │
-        ▼
-AI Sustainability Insights
-        │
-        ▼
-Mobility Recommendations
+
+↓
+
+Operational Excellence
+
+↓
+
+AI Root Cause Analysis
+
+↓
+
+Mobility Assistant
+
+↓
+
+Executive Report
 ```
 
 ---
 
-# 📊 Business Applications
+# 📈 Business Applications
 
-- Supply Chain Analytics
 - ESG Reporting
 - Carbon Accounting
-- Green Logistics
+- Logistics Optimization
 - Fleet Management
-- Transportation Planning
+- Lean Six Sigma
+- Operational Excellence
+- Supply Chain Analytics
 - Sustainability Consulting
-- Smart Mobility
+- Transportation Planning
+- Executive Decision Support
 
 ---
 
-# 🎯 Future Enhancements
+# 🔮 Future Roadmap
 
-- Docker Support
-- CI/CD using GitHub Actions
 - FastAPI Backend
 - PostgreSQL Integration
-- User Authentication
+- Authentication & RBAC
 - Cloud Deployment (Azure / AWS)
-- Predictive Carbon Analytics
-- Real-time GPS Integration
-- Live Traffic Optimization
-- IoT Sensor Integration
+- Docker Support
+- CI/CD Pipelines
+- Predictive Delay Forecasting
+- IoT Integration
+- GPS Tracking
+- Real-Time Fleet Monitoring
+- Digital Twin Simulation
+- SAP TM Integration
 
 ---
 
 # 📸 Screenshots
 
-> Add screenshots of your dashboard here.
+## ESG Dashboard
 
-Example:
-
-```
-screenshots/
-
-dashboard.png
-
-route_optimization.png
-
-mobility_assistant.png
-```
+<img src="screenshots/esg_dashboard.png" width="100%">
 
 ---
 
-# 📚 Learning Outcomes
+## Route Optimization
 
-This project demonstrates practical experience with:
+<img src="screenshots/route_optimization.png" width="100%">
 
-- Data Analytics
+---
+
+## Operational Excellence
+
+<img src="screenshots/operational_excellence.png" width="100%">
+
+---
+
+## Fishbone Analysis
+
+<img src="screenshots/fishbone.png" width="100%">
+
+---
+
+## 5 Whys Analysis
+
+<img src="screenshots/5whys.png" width="100%">
+
+---
+
+# 🎓 Learning Outcomes
+
+This project demonstrates practical experience in:
+
+- Supply Chain Analytics
 - ESG Reporting
-- Sustainability Analytics
-- Route Optimization
+- Lean Six Sigma
+- Root Cause Analysis
+- Operational Excellence
 - Artificial Intelligence Integration
-- Dashboard Development
-- Python Programming
 - Business Intelligence
-- Interactive Data Visualization
+- Carbon Accounting
+- Route Optimization
+- Dashboard Development
+- Data Analytics
+- Python Development
+- Interactive Visualization
 
 ---
 
@@ -259,23 +533,12 @@ This project demonstrates practical experience with:
 
 **Kshitij Singh**
 
-B.Tech – Electronics & Communication Engineering
+B.Tech — Electronics & Communication Engineering
 
 Birla Institute of Technology, Mesra
 
-GitHub:
-https://github.com/Kshitij250
+🔗 GitHub: https://github.com/Kshitij250
 
 ---
 
-# ⭐ Support
-
-If you found this project useful,
-
-⭐ Star the repository
-
-🍴 Fork it
-
-💡 Contribute with improvements
-
----
+⭐ If you found this project useful, consider giving it a star!
