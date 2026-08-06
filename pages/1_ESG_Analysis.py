@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
+from utils.data_validation import detect_column, validate_dataset
 
 st.set_page_config(
     page_title="ESG Analysis | ESG Logistics",
@@ -12,7 +13,7 @@ st.set_page_config(
 )
 
 from utils.sidebar import render_sidebar
-render_sidebar()
+render_sidebar(active_page="esg")
 
 # ─────────────────────────────────────────────
 # GLOBAL CSS
@@ -40,11 +41,6 @@ st.markdown("""
 
 * { font-family: var(--font-body); box-sizing: border-box; }
 .stApp { background: var(--bg-base) !important; }
-
-[data-testid="stSidebar"] {
-  background: var(--bg-surface) !important;
-  border-right: 1px solid var(--border) !important;
-}
 
 h1,h2,h3 { font-family: var(--font-head) !important; color: var(--text-primary) !important; }
 
@@ -144,25 +140,16 @@ p, li { color: var(--text-secondary); }
 
 # ─────────────────────────────────────────────
 # EMISSION ENGINE
+#
+# NOTE ON METHODOLOGY: these emission factors (kg CO2 per km, keyed off
+# vehicle-name substrings) are illustrative placeholders, not derived
+# from a recognized standard. For an industry-credible ESG report,
+# align these with the GLEC Framework / ISO 14083, or GHG Protocol
+# Scope 3 Category 4/9 transportation factors, and cite the source
+# methodology in the exported report.
 # ─────────────────────────────────────────────
-def get_emission_factor(vehicle):
-    vehicle = str(vehicle).upper()
-    if any(x in vehicle for x in ["HCV","AXLE","TRAILER","MULTI"]):
-        return 0.22
-    elif any(x in vehicle for x in ["LCV","ACE","PICKUP"]):
-        return 0.10
-    elif any(x in vehicle for x in ["TRUCK","LPT"]):
-        return 0.15
-    elif any(x in vehicle for x in ["MINI","VAN"]):
-        return 0.08
-    return 0.12
 
-def detect_column(possible_names, columns):
-    for col in columns:
-        for name in possible_names:
-            if name.lower() in col.lower():
-                return col
-    return None
+
 
 CARBON_PRICE = 80
 
@@ -209,7 +196,7 @@ if "uploaded_df" not in st.session_state:
 # ─────────────────────────────────────────────
 df = st.session_state["uploaded_df"].copy()
 
-vehicle_col  = detect_column(["vehicle","vehicletype","truck","transport"], df.columns)
+vehicle_col  = detect_column(["vehicletype","vehicle_type","truck","lorry","transport","vehicle"], df.columns)
 distance_col = detect_column(["distance","km","kilometer"], df.columns)
 route_col    = detect_column(["route","lane","origin","source","from"], df.columns)
 city_col     = detect_column(["city","destination","to","location"], df.columns)
@@ -218,16 +205,70 @@ date_col     = detect_column(["date","datetime","shipment_date","created"], df.c
 weight_col   = detect_column(["weight","cargo","load","tonnage"], df.columns)
 cost_col     = detect_column(["cost","price","freight","charge"], df.columns)
 
+# ── ROBUSTNESS FIX ──────────────────────────────────────────────
+# Previously, if fuzzy name-matching failed to find the Vehicle or
+# Distance column (very likely with a real customer's own file, which
+# won't use the exact naming conventions this heuristic expects), the
+# page hit a dead end: st.error() + st.stop() with no way to recover
+# short of re-uploading a differently-named file. This now offers an
+# explicit manual mapping fallback instead.
 if not vehicle_col or not distance_col:
-    st.error("Vehicle or Distance column not detected. Please check your dataset columns.")
-    st.stop()
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:14px;padding:6px 0 16px 0;">
+        <div style="width:44px;height:44px;background:linear-gradient(135deg,#064e3b,#10B981);
+        border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">📊</div>
+        <div>
+            <div style="color:#e8f0fe;font-size:1.4rem;font-weight:700;
+            font-family:'Space Grotesk',sans-serif;">ESG Analysis Dashboard</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.warning(
+        "Couldn't automatically detect the **Vehicle** and/or **Distance** "
+        "columns in your file. Please map them manually below to continue.",
+        icon="⚠️",
+    )
+
+    map_c1, map_c2 = st.columns(2)
+    columns = list(df.columns)
+    with map_c1:
+        default_idx = columns.index(vehicle_col) if vehicle_col in columns else 0
+        vehicle_col = st.selectbox("Vehicle / Truck Type column", columns, index=default_idx, key="manual_vehicle_col")
+    with map_c2:
+        default_idx = columns.index(distance_col) if distance_col in columns else 0
+        distance_col = st.selectbox("Distance (km) column", columns, index=default_idx, key="manual_distance_col")
+
+    st.caption("Preview of the mapped columns:")
+    st.dataframe(df[[vehicle_col, distance_col]].head(), use_container_width=True, hide_index=True)
+
+    if not st.button("✅ Confirm mapping and continue", use_container_width=False):
+        st.stop()
+
+from utils.emission_factors import calculate_emissions_kg, extract_capacity_tonnes
 
 df[vehicle_col]  = df[vehicle_col].astype(str).str.upper().str.strip()
 df[distance_col] = pd.to_numeric(df[distance_col], errors="coerce").fillna(0)
 
-df["emission_factor"] = df[vehicle_col].apply(get_emission_factor)
-df["emission_kgCO2"]  = df[distance_col] * df["emission_factor"]
-df["carbon_cost"]     = df["emission_kgCO2"] * CARBON_PRICE
+if weight_col:
+    df[weight_col] = pd.to_numeric(df[weight_col], errors="coerce")
+else:
+    # No explicit weight column - try extracting stated vehicle capacity
+    # from the vehicle description text (e.g. "32 FT SINGLE-AXLE 7MT - HCV")
+    # as a Tier 3 proxy for cargo weight.
+    df["_extracted_capacity_tonnes"] = df[vehicle_col].apply(extract_capacity_tonnes)
+    if df["_extracted_capacity_tonnes"].notna().any():
+        weight_col = "_extracted_capacity_tonnes"
+
+def _calc_row(row):
+    weight = row[weight_col] if weight_col and pd.notna(row.get(weight_col)) else None
+    return calculate_emissions_kg(row[vehicle_col], row[distance_col], weight)
+
+_calc = df.apply(_calc_row, axis=1, result_type="expand")
+df["emission_kgCO2"] = _calc["emissions_kg"]
+df["calc_method"]    = _calc["method"]
+df["data_tier"]      = _calc["tier"]
+df["carbon_cost"]    = df["emission_kgCO2"] * CARBON_PRICE
 
 max_emission   = df["emission_kgCO2"].max()
 df["esg_score"] = (100 - (df["emission_kgCO2"] / max_emission) * 100) if max_emission > 0 else 100
@@ -720,8 +761,22 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-savings_if_optimized = total_carbon_cost * 0.20
-co2_saved_if_optimized = total_emissions * 0.20
+from utils.roi_analysis import calculate_optimization_potential
+
+optimization = calculate_optimization_potential(
+    df, vehicle_col, distance_col, weight_col, CARBON_PRICE
+)
+
+if optimization["available"]:
+    savings_if_optimized   = optimization["total_potential_cost"]
+    co2_saved_if_optimized = optimization["total_potential_kg"]
+    opt_pct                = optimization["pct_of_total_emissions"]
+    best_class_label       = optimization["best_class"]
+else:
+    savings_if_optimized   = 0
+    co2_saved_if_optimized = 0
+    opt_pct                = 0
+    best_class_label       = "N/A"
 
 i1, i2, i3 = st.columns(3)
 
@@ -754,12 +809,14 @@ with i2:
             text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
             💰 Cost Saving Opportunity</div>
             <div style="color:#e8f0fe;font-size:0.88rem;font-weight:600;margin-bottom:6px;">
-            20% Optimisation Potential</div>
+            Fleet-Mix Optimisation Potential ({opt_pct:.0f}%)</div>
             <div style="color:#7d9bc0;font-size:0.78rem;line-height:1.6;">
-            Route and fleet optimisation could save up to
+            Shifting shipments toward the fleet's most carbon-efficient class already
+            in use ({best_class_label}) could reduce carbon cost by
             <span style="color:#22c55e;font-weight:700;">₹{savings_if_optimized:,.0f}</span>
-            in carbon costs annually and reduce emissions by
-            <span style="color:#22c55e;font-weight:700;">{co2_saved_if_optimized:,.0f} kg CO₂</span>.
+            and emissions by
+            <span style="color:#22c55e;font-weight:700;">{co2_saved_if_optimized:,.0f} kg CO₂</span> —
+            based on within-fleet benchmarking, not external assumptions.
             </div>
         </div>
         """, unsafe_allow_html=True)
