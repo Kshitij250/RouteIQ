@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 from utils.sidebar import render_sidebar
-render_sidebar()
+render_sidebar(active_page="route")
 
 import folium
 from streamlit_folium import st_folium
@@ -60,28 +60,6 @@ st.markdown("""
 
 * { font-family: var(--font-body); box-sizing: border-box; }
 .stApp { background: var(--bg-base) !important; }
-
-[data-testid="stSidebar"] {
-  background: var(--bg-surface) !important;
-  border-right: 1px solid var(--border) !important;
-}
-[data-testid="stSidebar"] * { color: var(--text-secondary) !important; }
-[data-testid="stSidebar"] input,
-[data-testid="stSidebar"] .stSelectbox > div > div,
-[data-testid="stSidebar"] .stNumberInput input {
-  background: #0a1222 !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  color: var(--text-primary) !important;
-  font-size: 0.88rem !important;
-}
-[data-testid="stSidebar"] label {
-  color: var(--text-muted) !important;
-  font-size: 0.72rem !important;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  font-weight: 600 !important;
-}
 
 h1, h2, h3 { font-family: var(--font-head) !important; color: var(--text-primary) !important; }
 h1 { font-size: 1.5rem !important; font-weight: 700 !important; }
@@ -195,10 +173,26 @@ p, li { color: var(--text-secondary); }
 
 # ─────────────────────────────────────────────
 # DATA & GRAPH
+# ── PERFORMANCE FIX: cache the workbook read and graph build so they
+# only run once per session (or once per file) instead of on every
+# rerun / widget interaction, which was previously re-reading the
+# Excel file and rebuilding the NetworkX graph on every single click.
 # ─────────────────────────────────────────────
 DATA_PATH = "data/ESG_Logistics_Final_Master_Dataset.xlsx"
-data = load_data(DATA_PATH)
-G    = build_multimodal_graph(data)
+
+
+@st.cache_data(show_spinner="Loading logistics dataset...")
+def _load_data_cached(path):
+    return load_data(path)
+
+
+@st.cache_resource(show_spinner="Building multimodal network...")
+def _build_graph_cached(_data):
+    return build_multimodal_graph(_data)
+
+
+data = _load_data_cached(DATA_PATH)
+G    = _build_graph_cached(data)
 
 # ─────────────────────────────────────────────
 # SESSION STATE
@@ -300,16 +294,16 @@ with top_r:
             _cw  = st.session_state.get("_cargo_weight", 1)
 
             try:
-                _cr   = find_cheapest_route(G, _src, _dst)
-                _cs   = build_auto_selection(G, _cr)
+                _cr   = find_cheapest_route(G, _src, _dst, data=data, cargo_weight=_cw)
+                _cs   = build_auto_selection(G, _cr, objective="cheapest", data=data, cargo_weight=_cw)
                 _cres = calculate_custom_route(G, _cr, _cs, _cw)
 
-                _fr   = find_fastest_route(G, _src, _dst)
-                _fs   = build_auto_selection(G, _fr)
+                _fr   = find_fastest_route(G, _src, _dst, data=data, cargo_weight=_cw)
+                _fs   = build_auto_selection(G, _fr, objective="fastest", data=data, cargo_weight=_cw)
                 _fres = calculate_custom_route(G, _fr, _fs, _cw)
 
-                _gr   = find_greenest_route(G, _src, _dst)
-                _gs   = build_auto_selection(G, _gr)
+                _gr   = find_greenest_route(G, _src, _dst, data=data, cargo_weight=_cw)
+                _gs   = build_auto_selection(G, _gr, objective="greenest", data=data, cargo_weight=_cw)
                 _gres = calculate_custom_route(G, _gr, _gs, _cw)
 
                 xlsx_bytes = build_excel_report(
@@ -364,6 +358,33 @@ st.markdown("""
 
 cities = sorted(list(G.nodes()))
 
+use_live_routing = st.checkbox(
+    "🛰️ Use live road distances & ETA (OSRM)",
+    value=False,
+    help=(
+        "When enabled, Road segments in the final calculated plan use real "
+        "driving distance/duration from OSRM instead of the static distance "
+        "in the dataset. Falls back silently to the dataset value if the "
+        "live lookup fails. Rail/Sea/Air always use the scheduled corridor "
+        "distance since those are fixed lanes, not point-to-point roads. "
+        "Uses OSRM's free public demo server — not for high-volume production traffic."
+    ),
+)
+
+apply_live_to_comparisons = st.checkbox(
+    "🌦️ Also apply live data to Cheapest / Fastest / Greenest comparisons",
+    value=False,
+    disabled=not use_live_routing,
+    help=(
+        "By default, the Cheapest/Fastest/Greenest strategy routes (path AND "
+        "numbers) are computed from static dataset distances only, so they "
+        "don't hammer the free OSRM/weather APIs on every rerun. Enable this "
+        "to make them live-aware too: this can change which mode/asset (and "
+        "even which city sequence) is picked as 'best', not just the reported "
+        "numbers for a fixed path. Requires the checkbox above to be on."
+    ),
+)
+
 with st.container(border=True):
     inp1, inp2, inp3, inp4 = st.columns([2, 2, 1.5, 1])
 
@@ -378,15 +399,25 @@ with st.container(border=True):
         discover = st.button("🔍 Discover Route", use_container_width=True)
 
 if discover:
-    with st.spinner("🔍 Discovering optimal path..."):
-        route = discover_route(G, source, destination)
-        st.session_state.discovered_route = route
-        st.session_state.segments         = build_route_segments(route)
-        st.session_state.results          = None
-        st.session_state.route_plan       = None
-        st.session_state["_source"]       = source
-        st.session_state["_destination"]  = destination
-        st.session_state["_cargo_weight"] = cargo_weight
+    if source == destination:
+        st.warning("Source and destination cities must be different.")
+    else:
+        with st.spinner("🔍 Discovering optimal path..."):
+            # ── ACCURACY FIX — route discovery is now weight- and
+            # objective-aware: it jointly optimizes the city sequence
+            # AND the mode/vehicle plan using a blended cost+time+CO2
+            # score, instead of picking a sequence by raw distance
+            # alone and only choosing modes afterward.
+            route = discover_route(G, source, destination, data=data, cargo_weight=cargo_weight)
+            if not route:
+                st.error(f"No viable route could be found between {source} and {destination}. Please check dataset connectivity.")
+            st.session_state.discovered_route = route
+            st.session_state.segments         = build_route_segments(route) if route else []
+            st.session_state.results          = None
+            st.session_state.route_plan       = None
+            st.session_state["_source"]       = source
+            st.session_state["_destination"]  = destination
+            st.session_state["_cargo_weight"] = cargo_weight
 
 
 # ─────────────────────────────────────────────
@@ -458,8 +489,18 @@ if st.session_state.discovered_route:
         calculate_plan = st.button("📊 Calculate Logistics Plan", use_container_width=True)
 
         if calculate_plan:
-            with st.spinner("⚙️ Calculating plan..."):
-                results = calculate_custom_route(G, route, selected_modes, cargo_weight)
+            with st.spinner("⚙️ Calculating plan..." + (" (querying live road routing...)" if use_live_routing else "")):
+                # Live routing (OSRM) is applied only to the final custom
+                # plan, not to the cheapest/fastest/greenest comparison
+                # routes below — those recompute on every rerun, and
+                # hitting a free public routing API for every comparison
+                # on every interaction would be both slow and a good way
+                # to get rate-limited.
+                coords_for_routing = get_city_coordinates(data) if use_live_routing else None
+                results = calculate_custom_route(
+                    G, route, selected_modes, cargo_weight,
+                    city_coords=coords_for_routing, use_live_routing=use_live_routing,
+                )
                 route_plan = [
                     {
                         "Source":      route[i],
@@ -469,6 +510,17 @@ if st.session_state.discovered_route:
                     }
                     for i in range(len(route) - 1)
                 ]
+                if use_live_routing:
+                    live_n = results.get("live_segments", 0)
+                    road_n = sum(1 for m in results.get("modes", []) if m == "Road")
+                    if road_n == 0:
+                        pass
+                    elif live_n == road_n:
+                        st.success(f"✅ Live road distance/ETA used for all {live_n} road segment(s).")
+                    elif live_n > 0:
+                        st.warning(f"🛰️ Live routing used for {live_n}/{road_n} road segment(s) — the rest fell back to dataset distances (lookup failed or was rate-limited).")
+                    else:
+                        st.warning("🛰️ Live routing was enabled but no lookups succeeded — using dataset distances for all segments.")
                 st.session_state.results          = results
                 st.session_state.route_plan       = route_plan
                 st.session_state["_source"]       = source
@@ -491,17 +543,51 @@ if st.session_state.results is not None:
     destination  = st.session_state.get("_destination", destination)
     cargo_weight = st.session_state.get("_cargo_weight", cargo_weight)
 
-    cheapest_route     = find_cheapest_route(G, source, destination)
-    cheapest_selection = build_auto_selection(G, cheapest_route)
-    cheapest_results   = calculate_custom_route(G, cheapest_route, cheapest_selection, cargo_weight)
+    # ── LIVE-ROUTING FOR COMPARISON STRATEGIES ──────────────────────
+    # Gated behind its own checkbox (on top of the main live-routing
+    # checkbox) since it means live OSRM/weather calls fire for THREE
+    # extra routes (path-finding + segment metrics), not just one.
+    comparisons_live = use_live_routing and apply_live_to_comparisons
+    coords_for_comparisons = get_city_coordinates(data) if comparisons_live else None
 
-    fastest_route     = find_fastest_route(G, source, destination)
-    fastest_selection = build_auto_selection(G, fastest_route)
-    fastest_results   = calculate_custom_route(G, fastest_route, fastest_selection, cargo_weight)
+    cheapest_route     = find_cheapest_route(
+        G, source, destination, data=data, cargo_weight=cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
+    cheapest_selection = build_auto_selection(
+        G, cheapest_route, objective="cheapest", data=data, cargo_weight=cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
+    cheapest_results   = calculate_custom_route(
+        G, cheapest_route, cheapest_selection, cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
 
-    greenest_route     = find_greenest_route(G, source, destination)
-    greenest_selection = build_auto_selection(G, greenest_route)
-    greenest_results   = calculate_custom_route(G, greenest_route, greenest_selection, cargo_weight)
+    fastest_route     = find_fastest_route(
+        G, source, destination, data=data, cargo_weight=cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
+    fastest_selection = build_auto_selection(
+        G, fastest_route, objective="fastest", data=data, cargo_weight=cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
+    fastest_results   = calculate_custom_route(
+        G, fastest_route, fastest_selection, cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
+
+    greenest_route     = find_greenest_route(
+        G, source, destination, data=data, cargo_weight=cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
+    greenest_selection = build_auto_selection(
+        G, greenest_route, objective="greenest", data=data, cargo_weight=cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
+    greenest_results   = calculate_custom_route(
+        G, greenest_route, greenest_selection, cargo_weight,
+        city_coords=coords_for_comparisons, use_live_routing=comparisons_live,
+    )
 
     def pct_delta(val, ref):
         return round((val - ref) / ref * 100, 1) if ref else 0.0
@@ -509,6 +595,43 @@ if st.session_state.results is not None:
     cost_delta = pct_delta(results["cost"], cheapest_results["cost"])
     eta_delta  = pct_delta(results["eta"],  fastest_results["eta"])
     co2_delta  = pct_delta(results["co2"],  greenest_results["co2"])
+
+    # ── Build a Source→Destination/Mode plan list per strategy, same
+    # shape as the custom route_plan, so we can render path + modes
+    # for each strategy and compute savings vs the custom plan.
+    def _build_plan(strategy_route, strategy_selection):
+        return [
+            {
+                "Source":      strategy_route[i],
+                "Destination": strategy_route[i + 1],
+                "Mode":        strategy_selection[(strategy_route[i], strategy_route[i + 1])]["mode"],
+                "Vehicle":     strategy_selection[(strategy_route[i], strategy_route[i + 1])]["asset"],
+            }
+            for i in range(len(strategy_route) - 1)
+        ] if strategy_route and len(strategy_route) > 1 else []
+
+    cheapest_plan = _build_plan(cheapest_route, cheapest_selection)
+    fastest_plan  = _build_plan(fastest_route,  fastest_selection)
+    greenest_plan = _build_plan(greenest_route, greenest_selection)
+
+    # Savings vs the CUSTOM plan actually calculated above — positive
+    # number = strategy is cheaper/faster/cleaner than your custom plan,
+    # negative = your custom plan already beats this strategy on that metric.
+    def _savings(strategy_results):
+        return {
+            "cost_saved": results["cost"] - strategy_results["cost"],
+            "eta_saved":  results["eta"]  - strategy_results["eta"],
+            "co2_saved":  results["co2"]  - strategy_results["co2"],
+        }
+
+    STRATEGY_INFO = {
+        "Cheapest": {"route": cheapest_route, "plan": cheapest_plan, "results": cheapest_results,
+                     "savings": _savings(cheapest_results), "accent": "#f59e0b", "icon": "💰"},
+        "Fastest":  {"route": fastest_route,  "plan": fastest_plan,  "results": fastest_results,
+                     "savings": _savings(fastest_results),  "accent": "#8b5cf6", "icon": "⚡"},
+        "Greenest": {"route": greenest_route, "plan": greenest_plan, "results": greenest_results,
+                     "savings": _savings(greenest_results), "accent": "#22c55e", "icon": "🌱"},
+    }
 
     MODE_COLORS = {"Road": "#f59e0b", "Rail": "#22c55e", "Sea": "#3b82f6", "Air": "#8b5cf6"}
 
@@ -781,9 +904,33 @@ if st.session_state.results is not None:
         font-family:'Space Grotesk',sans-serif;">Optimization Strategies</span>
     </div>""", unsafe_allow_html=True)
 
+    if comparisons_live:
+        st.markdown("""
+        <div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);
+        border-radius:8px;padding:8px 14px;margin-bottom:10px;">
+            <span style="color:#38bdf8;font-size:0.78rem;font-weight:600;">🛰️ Live mode:</span>
+            <span style="color:#7d9bc0;font-size:0.78rem;"> Cheapest/Fastest/Greenest below use live OSRM
+            road distances, diesel pricing, and weather risk — the path and mode choice can shift with
+            current conditions, not just the reported numbers.</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.15);
+        border-radius:8px;padding:8px 14px;margin-bottom:10px;">
+            <span style="color:#94a3b8;font-size:0.78rem;">📊 Static mode: Cheapest/Fastest/Greenest below
+            use dataset distances only. Enable both live-routing checkboxes above the map to make these
+            reflect current OSRM/weather conditions too.</span>
+        </div>
+        """, unsafe_allow_html=True)
+
     tab1, tab2, tab3 = st.tabs(["💰 Cheapest", "⚡ Fastest", "🌱 Greenest"])
 
-    def strategy_tab(res, route_data, accent):
+    def strategy_tab(name, info):
+        res, route_data, plan, savings, accent, icon = (
+            info["results"], info["route"], info["plan"], info["savings"], info["accent"], info["icon"]
+        )
+
         c1, c2, c3 = st.columns(3)
         for col, lbl, val in [
             (c1, "Cost",  f"₹{res['cost']:,.0f}"),
@@ -799,20 +946,83 @@ if st.session_state.results is not None:
                 font-family:'Space Grotesk',sans-serif;">{val}</div>
             </div>
             """, unsafe_allow_html=True)
+
         st.markdown(f"""
         <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);
-        border-radius:8px;padding:10px 14px;margin-top:8px;">
+        border-radius:8px;padding:10px 14px;margin-top:10px;">
+            <div style="color:#4a6080;font-size:0.66rem;text-transform:uppercase;
+            letter-spacing:0.07em;font-weight:600;margin-bottom:4px;">Path</div>
             <span style="color:#86efac;font-size:0.84rem;font-weight:600;">
-            {"  →  ".join(route_data)}</span>
+            {"  →  ".join(route_data) if route_data else "No route found"}</span>
         </div>
         """, unsafe_allow_html=True)
 
+        # ── Per-segment mode breakdown ──
+        if plan:
+            st.markdown("""<div style="color:#4a6080;font-size:0.66rem;text-transform:uppercase;
+            letter-spacing:0.07em;font-weight:600;margin:10px 0 6px 0;">Mode Used Per Segment</div>""",
+            unsafe_allow_html=True)
+            MODE_COLORS_LOCAL = {"Road": "#f59e0b", "Rail": "#22c55e", "Sea": "#3b82f6", "Air": "#8b5cf6"}
+            for i, row in enumerate(plan):
+                mc = MODE_COLORS_LOCAL.get(row["Mode"], "#64748b")
+                st.markdown(f"""
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;
+                background:#0a1222;border-radius:8px;margin-bottom:4px;">
+                    <div style="width:20px;height:20px;background:{mc}22;border-radius:5px;
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:0.62rem;font-weight:800;color:{mc};flex-shrink:0;">{i+1}</div>
+                    <div style="flex:1;color:#e8f0fe;font-size:0.76rem;font-weight:600;">
+                    {row['Source']} → {row['Destination']}</div>
+                    <div style="color:#4a6080;font-size:0.68rem;">{row.get('Vehicle','—')}</div>
+                    <div style="background:{mc}22;border:1px solid {mc}44;border-radius:99px;
+                    padding:2px 8px;color:{mc};font-size:0.66rem;font-weight:700;white-space:nowrap;">
+                    {row['Mode']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # ── Savings vs your custom plan ──
+        st.markdown("""<div style="color:#4a6080;font-size:0.66rem;text-transform:uppercase;
+        letter-spacing:0.07em;font-weight:600;margin:12px 0 6px 0;">Savings vs Your Custom Plan</div>""",
+        unsafe_allow_html=True)
+
+        def _saving_color(val):
+            return "#22c55e" if val > 0 else ("#ef4444" if val < 0 else "#64748b")
+
+        def _saving_verb(val):
+            return "saved" if val > 0 else ("more" if val < 0 else "same")
+
+        sv1, sv2, sv3 = st.columns(3)
+        with sv1:
+            c = _saving_color(savings["cost_saved"])
+            st.markdown(f"""
+            <div style="background:#0a1222;border:1px solid {c}33;border-radius:8px;padding:10px 14px;">
+                <div style="color:#4a6080;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Cost</div>
+                <div style="color:{c};font-size:1.1rem;font-weight:800;font-family:'Space Grotesk',sans-serif;margin-top:3px;">
+                {'+' if savings['cost_saved']>0 else ''}₹{abs(savings['cost_saved']):,.0f} {_saving_verb(savings['cost_saved'])}</div>
+            </div>""", unsafe_allow_html=True)
+        with sv2:
+            c = _saving_color(savings["eta_saved"])
+            st.markdown(f"""
+            <div style="background:#0a1222;border:1px solid {c}33;border-radius:8px;padding:10px 14px;">
+                <div style="color:#4a6080;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Time</div>
+                <div style="color:{c};font-size:1.1rem;font-weight:800;font-family:'Space Grotesk',sans-serif;margin-top:3px;">
+                {'+' if savings['eta_saved']>0 else ''}{abs(savings['eta_saved']):,.1f} hrs {_saving_verb(savings['eta_saved'])}</div>
+            </div>""", unsafe_allow_html=True)
+        with sv3:
+            c = _saving_color(savings["co2_saved"])
+            st.markdown(f"""
+            <div style="background:#0a1222;border:1px solid {c}33;border-radius:8px;padding:10px 14px;">
+                <div style="color:#4a6080;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">CO₂</div>
+                <div style="color:{c};font-size:1.1rem;font-weight:800;font-family:'Space Grotesk',sans-serif;margin-top:3px;">
+                {'+' if savings['co2_saved']>0 else ''}{abs(savings['co2_saved']):,.0f} kg {_saving_verb(savings['co2_saved'])}</div>
+            </div>""", unsafe_allow_html=True)
+
     with tab1:
-        strategy_tab(cheapest_results, cheapest_route, "#f59e0b")
+        strategy_tab("Cheapest", STRATEGY_INFO["Cheapest"])
     with tab2:
-        strategy_tab(fastest_results,  fastest_route,  "#8b5cf6")
+        strategy_tab("Fastest", STRATEGY_INFO["Fastest"])
     with tab3:
-        strategy_tab(greenest_results, greenest_route, "#22c55e")
+        strategy_tab("Greenest", STRATEGY_INFO["Greenest"])
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
